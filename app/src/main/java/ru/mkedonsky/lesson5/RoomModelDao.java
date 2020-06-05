@@ -1,17 +1,18 @@
 package ru.mkedonsky.lesson5;
 
+import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Update;
 
 import java.util.List;
-
+@Dao
 public interface RoomModelDao {
 
 
     @Query("SELECT * FROM roommodel")
-    abstract List<RoomModel> getAll();
+     List<RoomModel> getAll();
 
     @Query("SELECT * FROM roommodel WHERE userId LIKE :userId LIMIT 1")
     RoomModel findByUserId(String userId);

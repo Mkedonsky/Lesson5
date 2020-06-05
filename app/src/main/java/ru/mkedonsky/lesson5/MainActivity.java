@@ -16,12 +16,13 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.orm.SugarContext;
 
-import java.sql.Date;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
+import javax.inject.Inject;
+
 import io.reactivex.Single;
-import io.reactivex.SingleEmitter;
 import io.reactivex.SingleOnSubscribe;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.observers.DisposableSingleObserver;
@@ -39,7 +40,12 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
     Button btnSaveAllSugar;
     Button btnSelectAllSugar;
     Button btnDeleteAllSugar;
+    Button btnSaveAllRoom;
+    Button btnSelectAllRoom;
+    Button btnDeletAllRoom;
+
     RestAPI restAPI;
+
     List<RetrofitModel> modelList = new ArrayList<>();
     Retrofit retrofit = null;
 
@@ -47,24 +53,50 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        OrmApp.getComponent().inject(this);
         setContentView(R.layout.activity_main);
+        initView();
+        initBtnClick();
+        SugarContext.init(getApplicationContext());
+
+    }
+
+
+    public void initView(){
         mInfoTextView = findViewById(R.id.tvLoad);
         progressBar =  findViewById(R.id.progressBar);
         btnLoad = findViewById(R.id.btnLoad);
         btnSaveAllSugar =  findViewById(R.id.btnSaveAllSugar);
         btnSelectAllSugar =  findViewById(R.id.btnSelectAllSugar);
         btnDeleteAllSugar =  findViewById(R.id.btnDeleteAllSugar);
-        btnLoad.setOnClickListener(this);
-        btnSaveAllSugar.setOnClickListener(this);
-        btnSelectAllSugar.setOnClickListener(this);
-        btnDeleteAllSugar.setOnClickListener(this);
-        SugarContext.init(getApplicationContext());
+        btnSaveAllRoom = findViewById(R.id.btnSaveAllRoom);
+        btnSelectAllRoom = findViewById(R.id.btnSelectAllRoom);
+        btnDeletAllRoom = findViewById(R.id.btnDeleteAllRoom);
+
     }
+
+    public void initBtnClick(){
+        btnLoad.setOnClickListener(this);
+        btnSaveAllSugar.setOnClickListener((view)-> OrmApp.makeSugarComponent(modelList)
+                .sugarSaveAll().subscribeWith(CreateObserver()));
+        btnSelectAllSugar.setOnClickListener((view)->OrmApp.makeSugarComponent(modelList)
+                .getAll().subscribeWith(CreateObserver()));
+        btnDeleteAllSugar.setOnClickListener((view)->OrmApp.makeSugarComponent(modelList)
+                .deleteAll().subscribeWith(CreateObserver()));
+        btnSaveAllRoom.setOnClickListener(this);
+        btnSelectAllRoom.setOnClickListener(this);
+        btnDeletAllRoom.setOnClickListener(this);
+
+    }
+
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         SugarContext.terminate();
     }
+
+
     private DisposableSingleObserver<Bundle> CreateObserver() {
         return new DisposableSingleObserver<Bundle>() {
             @Override
@@ -105,7 +137,7 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
                     mInfoTextView.setText("no retrofit: " + io.getMessage());
                     return;
                 }
-                // Подготовили вызов на сервер
+
                 Call<List<RetrofitModel>> call = restAPI.loadUsers();
                 ConnectivityManager connectivityManager =
                         (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -118,69 +150,69 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
                     Toast.makeText(this, "Подключите интернет", Toast.LENGTH_SHORT).show();
                 }
                 break;
-            case R.id.btnSaveAllSugar:
-                Single<Bundle> singleSaveAll = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
-                    try {
-                        String curLogin = " ";
-                        String curUserID = " ";
-                        String curAvatarUrl = " ";
-
-                        Date first = new Date();
-                        for (RetrofitModel curItem : modelList) {
-                            curLogin = curItem.getLogin();
-                            curUserID = curItem.getId();
-                            curAvatarUrl = curItem.getAvatarUrl();
-                            SugarModel sugarModel = new SugarModel(curLogin, curUserID, curAvatarUrl);
-                            sugarModel.save();
-                        }
-                       Date second = new Date(System.currentTimeMillis());
-                        List<SugarModel> tempList = SugarModel.listAll(SugarModel.class);
-                        Bundle bundle = new Bundle();
-                        bundle.putInt("count", tempList.size());
-                        bundle.putLong("msek", second.getTime() - first.getTime());
-                        emitter.onSuccess(bundle);
-                    } catch (Exception e) {
-                        emitter.onError(e);
-                    }
-                }).subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread());
-                singleSaveAll.subscribeWith(CreateObserver());
-                break;
-            case R.id.btnSelectAllSugar:
-                Single<Bundle> singleSelectAll = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
-                    try {
-                        Date first = new Date();
-                        List<SugarModel> tempList = SugarModel.listAll(SugarModel.class);
-                        Date second = new Date();
-                        Bundle bundle = new Bundle();
-                        bundle.putInt("count", tempList.size());
-                        bundle.putLong("msek", second.getTime() - first.getTime());
-                        emitter.onSuccess(bundle);
-                    } catch (Exception e) {
-                        emitter.onError(e);
-                    }
-                }).subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread());
-                singleSelectAll.subscribeWith(CreateObserver());
-                break;
-            case R.id.btnDeleteAllSugar:
-                Single<Bundle> singleDeleteAll = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
-                    try {
-                        List<SugarModel> tempList = SugarModel.listAll(SugarModel.class);
-                        Date first = new Date();
-                        SugarModel.deleteAll(SugarModel.class);
-                        Date second = new Date();
-                        Bundle bundle = new Bundle();
-                        bundle.putInt("count", tempList.size());
-                        bundle.putLong("msek", second.getTime() - first.getTime());
-                        emitter.onSuccess(bundle);
-                    } catch (Exception e) {
-                        emitter.onError(e);
-                    }
-                }).subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread());
-                singleDeleteAll.subscribeWith(CreateObserver());
-                break;
+//            case R.id.btnSaveAllSugar:
+//                Single<Bundle> singleSaveAll = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
+//                    try {
+//                        String curLogin = " ";
+//                        String curUserID = " ";
+//                        String curAvatarUrl = " ";
+//
+//                        Date first = new Date();
+//                        for (RetrofitModel curItem : modelList) {
+//                            curLogin = curItem.getLogin();
+//                            curUserID = curItem.getId();
+//                            curAvatarUrl = curItem.getAvatarUrl();
+//                            SugarModel sugarModel = new SugarModel(curLogin, curUserID, curAvatarUrl);
+//                            sugarModel.save();
+//                        }
+//                       Date second = new Date();
+//                        List<SugarModel> tempList = SugarModel.listAll(SugarModel.class);
+//                        Bundle bundle = new Bundle();
+//                        bundle.putInt("count", tempList.size());
+//                        bundle.putLong("msek", second.getTime() - first.getTime());
+//                        emitter.onSuccess(bundle);
+//                    } catch (Exception e) {
+//                        emitter.onError(e);
+//                    }
+//                }).subscribeOn(Schedulers.io())
+//                        .observeOn(AndroidSchedulers.mainThread());
+//                singleSaveAll.subscribeWith(CreateObserver());
+//                break;
+//            case R.id.btnSelectAllSugar:
+//                Single<Bundle> singleSelectAll = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
+//                    try {
+//                        Date first = new Date();
+//                        List<SugarModel> tempList = SugarModel.listAll(SugarModel.class);
+//                        Date second = new Date();
+//                        Bundle bundle = new Bundle();
+//                        bundle.putInt("count", tempList.size());
+//                        bundle.putLong("msek", second.getTime() - first.getTime());
+//                        emitter.onSuccess(bundle);
+//                    } catch (Exception e) {
+//                        emitter.onError(e);
+//                    }
+//                }).subscribeOn(Schedulers.io())
+//                        .observeOn(AndroidSchedulers.mainThread());
+//                singleSelectAll.subscribeWith(CreateObserver());
+//                break;
+//            case R.id.btnDeleteAllSugar:
+//                Single<Bundle> singleDeleteAll = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
+//                    try {
+//                        List<SugarModel> tempList = SugarModel.listAll(SugarModel.class);
+//                        Date first = new Date();
+//                        SugarModel.deleteAll(SugarModel.class);
+//                        Date second = new Date();
+//                        Bundle bundle = new Bundle();
+//                        bundle.putInt("count", tempList.size());
+//                        bundle.putLong("msek", second.getTime() - first.getTime());
+//                        emitter.onSuccess(bundle);
+//                    } catch (Exception e) {
+//                        emitter.onError(e);
+//                    }
+//                }).subscribeOn(Schedulers.io())
+//                        .observeOn(AndroidSchedulers.mainThread());
+//                singleDeleteAll.subscribeWith(CreateObserver());
+//                break;
             case R.id.btnSaveAllRoom:
                 Single<Bundle> singleSaveAllRoom = Single.create((SingleOnSubscribe<Bundle>)
                         emitter -> {
@@ -199,11 +231,11 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
                         roomModel.setUserId(curUserID);
                         roomModelList.add(roomModel);
 
-                        OrmApp.getDB().productDao().insertAll(roomModelList);
+                        OrmApp.get().getDB().productDao().insertAll(roomModelList);
                     }
                     Date second = new Date();
                     Bundle bundle = new Bundle();
-                    List<RoomModel> tempList = OrmApp.getDB().productDao().getAll();
+                    List<RoomModel> tempList = OrmApp.get().getDB().productDao().getAll();
                     bundle.putInt("count", tempList.size());
                     bundle.putLong("msek", second.getTime() - first.getTime());
                     emitter.onSuccess(bundle);
@@ -215,7 +247,7 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
                 Single<Bundle> singleSelectAllRoom = Single.create((SingleOnSubscribe<Bundle>) emitter -> {
                     try {
                         Date first = new Date();
-                        List<RoomModel> products = OrmApp.getDB().productDao().getAll();
+                        List<RoomModel> products = OrmApp.get().getDB().productDao().getAll();
                         Date second = new Date();
                         Bundle bundle = new Bundle();
                         bundle.putInt("count", products.size());
@@ -232,9 +264,9 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
                 Single<Bundle> singleDeleteAllRoom = Single.create((SingleOnSubscribe<Bundle>)
                         emitter -> {
                     try {
-                        List<RoomModel> products = OrmApp.getDB().productDao().getAll();
+                        List<RoomModel> products = OrmApp.get().getDB().productDao().getAll();
                         Date first = new Date();
-                        OrmApp.getDB().productDao().getAll();
+                        OrmApp.get().getDB().productDao().deleteAll();
                         Date second = new Date();
                         Bundle bundle = new Bundle();
                         bundle.putInt("count", products.size());
@@ -252,11 +284,13 @@ public class MainActivity extends AppCompatActivity  implements View.OnClickList
     }
 
 
+
     private void downloadOneUrl(Call<List<RetrofitModel>> call) {
         call.enqueue(new Callback<List<RetrofitModel>>() {
             @SuppressLint("SetTextI18n")
             @Override
-            public void onResponse(Call<List<RetrofitModel>> call, Response<List<RetrofitModel>> response) {
+            public void onResponse(Call<List<RetrofitModel>> call
+                    , Response<List<RetrofitModel>> response) {
                 if (response.isSuccessful()) {
                     RetrofitModel curModel;
                     mInfoTextView.append("\n Size = " + response.body().size()+
